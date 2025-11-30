@@ -1,0 +1,80 @@
+{
+  "RNN": {
+    "accuracy": 0.6045777426992897,
+    "precision": 0.3925619834710744,
+    "recall": 0.21158129175946547,
+    "f1": 0.27496382054992763,
+    "cm": [
+      [
+        671,
+        147
+      ],
+      [
+        354,
+        95
+      ]
+    ],
+    "config": {
+      "batch_size": 64,
+      "embed_dim": 128,
+      "hidden_dim": 128,
+      "epochs": 6,
+      "lr": 0.001,
+      "num_heads": 4,
+      "num_layers": 2,
+      "dropout": 0.2
+    }
+  },
+  "LSTM": {
+    "accuracy": 0.5864246250986582,
+    "precision": 0.4239350912778905,
+    "recall": 0.46547884187082406,
+    "f1": 0.4437367303609342,
+    "cm": [
+      [
+        534,
+        284
+      ],
+      [
+        240,
+        209
+      ]
+    ],
+    "config": {
+      "batch_size": 64,
+      "embed_dim": 128,
+      "hidden_dim": 128,
+      "epochs": 6,
+      "lr": 0.001,
+      "num_heads": 4,
+      "num_layers": 2,
+      "dropout": 0.2
+    }
+  },
+  "Transformer": {
+    "accuracy": 0.595895816890292,
+    "precision": 0.43953934740882916,
+    "recall": 0.5100222717149221,
+    "f1": 0.47216494845360824,
+    "cm": [
+      [
+        526,
+        292
+      ],
+      [
+        220,
+        229
+      ]
+    ],
+    "config": {
+      "batch_size": 64,
+      "embed_dim": 128,
+      "hidden_dim": 128,
+      "epochs": 6,
+      "lr": 0.001,
+      "num_heads": 4,
+      "num_layers": 2,
+      "dropout": 0.2
+    }
+  }
+}
