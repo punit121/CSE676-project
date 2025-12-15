@@ -1,83 +1,100 @@
 {
   "RNN": {
-    "accuracy": 0.5816890292028414,
-    "precision": 0.35587188612099646,
-    "recall": 0.22271714922049,
-    "f1": 0.273972602739726,
+    "accuracy": 0.5808997632202052,
+    "precision": 0.4055299539170507,
+    "recall": 0.39198218262806234,
+    "f1": 0.3986409966024915,
     "cm": [
       [
-        637,
-        181
+        560,
+        258
       ],
       [
-        349,
-        100
+        273,
+        176
       ]
     ],
     "config": {
-      "batch_size": 96,
-      "embed_dim": 192,
-      "hidden_dim": 256,
-      "epochs": 9,
-      "lr": 0.0006,
-      "num_heads": 4,
-      "num_layers": 2,
-      "dropout": 0.3
+      "batch_size": 192,
+      "embed_dim": 256,
+      "hidden_dim": 512,
+      "epochs": 20,
+      "lr": 0.0002,
+      "dropout": 0.5,
+      "patience": 4,
+      "weight_decay": 0.0001,
+      "lr_decay": 0.7,
+      "min_lr": 1e-05,
+      "grad_clip": 1.2,
+      "best_epoch": 11,
+      "trained_epochs": 15
     },
-    "val_f1": 0.24581005586592178
+    "val_f1": 0.4157706093189964
   },
   "LSTM": {
-    "accuracy": 0.6219415943172849,
-    "precision": 0.46462264150943394,
-    "recall": 0.43875278396436523,
-    "f1": 0.4513172966781214,
+    "accuracy": 0.6029992107340174,
+    "precision": 0.43478260869565216,
+    "recall": 0.40089086859688194,
+    "f1": 0.4171494785631518,
     "cm": [
       [
-        591,
-        227
+        584,
+        234
       ],
       [
-        252,
-        197
+        269,
+        180
       ]
     ],
     "config": {
-      "batch_size": 96,
-      "embed_dim": 192,
-      "hidden_dim": 256,
-      "epochs": 9,
-      "lr": 0.0006,
-      "num_heads": 4,
-      "num_layers": 2,
-      "dropout": 0.35
+      "batch_size": 160,
+      "embed_dim": 256,
+      "hidden_dim": 512,
+      "epochs": 20,
+      "lr": 0.0002,
+      "dropout": 0.5,
+      "patience": 5,
+      "weight_decay": 0.0001,
+      "lr_decay": 0.7,
+      "min_lr": 1e-05,
+      "grad_clip": 1.2,
+      "best_epoch": 14,
+      "trained_epochs": 19
     },
-    "val_f1": 0.4297719087635054
+    "val_f1": 0.45760743321718933
   },
   "Transformer": {
-    "accuracy": 0.56353591160221,
-    "precision": 0.42934782608695654,
-    "recall": 0.7037861915367484,
-    "f1": 0.5333333333333333,
+    "accuracy": 0.611681136543015,
+    "precision": 0.46337308347529815,
+    "recall": 0.6057906458797327,
+    "f1": 0.525096525096525,
     "cm": [
       [
-        398,
-        420
+        503,
+        315
       ],
       [
-        133,
-        316
+        177,
+        272
       ]
     ],
     "config": {
-      "batch_size": 64,
-      "embed_dim": 128,
-      "hidden_dim": 256,
-      "epochs": 8,
-      "lr": 0.0009,
-      "num_heads": 4,
+      "batch_size": 80,
+      "embed_dim": 288,
+      "hidden_dim": 320,
+      "epochs": 18,
+      "lr": 0.0004,
+      "dropout": 0.3,
+      "num_heads": 6,
       "num_layers": 3,
-      "dropout": 0.2
+      "patience": 3,
+      "weight_decay": 0.0001,
+      "lr_decay": 0.65,
+      "min_lr": 3e-05,
+      "grad_clip": 0.8,
+      "best_epoch": 5,
+      "trained_epochs": 8
     },
-    "val_f1": 0.5134431916738942
+    "val_f1": 0.5040160642570282
   }
 }
