@@ -39,7 +39,7 @@ COLS = [
     "context",
 ]
 TRUE_LABELS = {"true", "mostly-true"}
-MAX_LEN = 32
+MAX_LEN = 64
 MIN_FREQ = 2
 MAX_VOCAB = 20000
 NUM_CLASSES = 2
@@ -92,36 +92,87 @@ def make_loaders(train_data, val_data, test_data, batch_size):
     return train_loader, val_loader, test_loader
 
 
+class SequenceAggregator(nn.Module):
+    def __init__(self, dim):
+        super().__init__()
+        self.attn = nn.Sequential(nn.Linear(dim, dim), nn.Tanh(), nn.Linear(dim, 1))
+        self.norm = nn.LayerNorm(dim * 3)
+
+    def forward(self, seq, mask):
+        mask = mask.unsqueeze(-1)
+        masked = seq * mask
+        lengths = mask.sum(dim=1).clamp(min=1.0)
+        mean_pool = masked.sum(dim=1) / lengths
+        mask_bool = mask.squeeze(-1).bool()
+        max_ready = seq.masked_fill(~mask_bool.unsqueeze(-1), torch.finfo(seq.dtype).min)
+        max_pool = max_ready.max(dim=1).values
+        has_tokens = mask_bool.any(dim=1, keepdim=True)
+        max_pool = torch.where(has_tokens, max_pool, torch.zeros_like(max_pool))
+        attn_logits = self.attn(seq).squeeze(-1)
+        attn_logits = attn_logits.masked_fill(~mask_bool, -1e9)
+        attn_weights = torch.softmax(attn_logits, dim=1)
+        attn_pool = torch.bmm(attn_weights.unsqueeze(1), seq).squeeze(1)
+        return self.norm(torch.cat([mean_pool, max_pool, attn_pool], dim=1))
+
+
 class RNNClassifier(nn.Module):
-    def __init__(self, vocab_size, embed_dim, hidden_dim, num_classes, pad_id, dropout=0.0):
+    def __init__(self, vocab_size, embed_dim, hidden_dim, num_classes, pad_id, dropout=0.0, num_layers=2):
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=pad_id)
-        self.rnn = nn.RNN(embed_dim, hidden_dim, batch_first=True, bidirectional=True)
-        self.dropout = nn.Dropout(dropout)
-        self.fc = nn.Linear(hidden_dim * 2, num_classes)
+        self.emb_dropout = nn.Dropout(dropout)
+        self.rnn = nn.GRU(
+            embed_dim,
+            hidden_dim,
+            batch_first=True,
+            bidirectional=True,
+            num_layers=num_layers,
+            dropout=dropout if num_layers > 1 else 0.0,
+        )
+        self.aggregator = SequenceAggregator(hidden_dim * 2)
+        self.proj = nn.Sequential(
+            nn.Linear(hidden_dim * 6, hidden_dim * 2),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim * 2, num_classes),
+        )
+        self.pad_id = pad_id
 
     def forward(self, x):
-        emb = self.embedding(x)
+        mask = x.ne(self.pad_id)
+        emb = self.emb_dropout(self.embedding(x))
         out, _ = self.rnn(emb)
-        last = out[:, -1, :]
-        last = self.dropout(last)
-        return self.fc(last)
+        feats = self.aggregator(out, mask)
+        return self.proj(feats)
 
 
 class LSTMClassifier(nn.Module):
-    def __init__(self, vocab_size, embed_dim, hidden_dim, num_classes, pad_id, dropout=0.0):
+    def __init__(self, vocab_size, embed_dim, hidden_dim, num_classes, pad_id, dropout=0.0, num_layers=2):
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=pad_id)
-        self.lstm = nn.LSTM(embed_dim, hidden_dim, batch_first=True, bidirectional=True)
-        self.dropout = nn.Dropout(dropout)
-        self.fc = nn.Linear(hidden_dim * 2, num_classes)
+        self.emb_dropout = nn.Dropout(dropout)
+        self.lstm = nn.LSTM(
+            embed_dim,
+            hidden_dim,
+            batch_first=True,
+            bidirectional=True,
+            num_layers=num_layers,
+            dropout=dropout if num_layers > 1 else 0.0,
+        )
+        self.aggregator = SequenceAggregator(hidden_dim * 2)
+        self.proj = nn.Sequential(
+            nn.Linear(hidden_dim * 6, hidden_dim * 2),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim * 2, num_classes),
+        )
+        self.pad_id = pad_id
 
     def forward(self, x):
-        emb = self.embedding(x)
+        mask = x.ne(self.pad_id)
+        emb = self.emb_dropout(self.embedding(x))
         out, _ = self.lstm(emb)
-        last = out[:, -1, :]
-        last = self.dropout(last)
-        return self.fc(last)
+        feats = self.aggregator(out, mask)
+        return self.proj(feats)
 
 
 class PositionalEncoding(nn.Module):
@@ -140,38 +191,69 @@ class PositionalEncoding(nn.Module):
 
 
 class TransformerClassifier(nn.Module):
-    def __init__(self, vocab_size, embed_dim, num_heads, num_layers, num_classes, pad_id, dropout=0.1):
+    def __init__(self, vocab_size, embed_dim, num_heads, num_layers, num_classes, pad_id, dropout=0.1, ff_dim=None):
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=pad_id)
         self.pos_encoder = PositionalEncoding(embed_dim, MAX_LEN)
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=embed_dim,
             nhead=num_heads,
-            dim_feedforward=embed_dim * 4,
+            dim_feedforward=ff_dim or embed_dim * 4,
             dropout=dropout,
             batch_first=True,
         )
         self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
         self.dropout = nn.Dropout(dropout)
+        self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
+        self.norm = nn.LayerNorm(embed_dim)
         self.fc = nn.Linear(embed_dim, num_classes)
         self.pad_id = pad_id
 
     def forward(self, x):
+        batch = x.size(0)
         emb = self.embedding(x)
         emb = self.pos_encoder(emb)
-        mask = x.eq(self.pad_id)
-        enc_out = self.encoder(emb, src_key_padding_mask=mask)
-        pooled = self.dropout(enc_out.mean(dim=1))
-        return self.fc(pooled)
+        cls = self.cls_token.expand(batch, -1, -1)
+        enc_input = torch.cat([cls, emb], dim=1)
+        pad_mask = x.eq(self.pad_id)
+        pad_mask = torch.cat([torch.zeros(batch, 1, dtype=torch.bool, device=x.device), pad_mask], dim=1)
+        enc_out = self.encoder(enc_input, src_key_padding_mask=pad_mask)
+        cls_out = self.norm(enc_out[:, 0])
+        return self.fc(self.dropout(cls_out))
 
 
 def build_model(name, vocab_size, pad_id, cfg):
     if name == "RNN":
-        return RNNClassifier(vocab_size, cfg["embed_dim"], cfg["hidden_dim"], NUM_CLASSES, pad_id, cfg.get("dropout", 0.0))
+        return RNNClassifier(
+            vocab_size,
+            cfg["embed_dim"],
+            cfg["hidden_dim"],
+            NUM_CLASSES,
+            pad_id,
+            cfg.get("dropout", 0.0),
+            cfg.get("num_layers", 2),
+        )
     if name == "LSTM":
-        return LSTMClassifier(vocab_size, cfg["embed_dim"], cfg["hidden_dim"], NUM_CLASSES, pad_id, cfg.get("dropout", 0.0))
+        return LSTMClassifier(
+            vocab_size,
+            cfg["embed_dim"],
+            cfg["hidden_dim"],
+            NUM_CLASSES,
+            pad_id,
+            cfg.get("dropout", 0.0),
+            cfg.get("num_layers", 2),
+        )
     if name == "Transformer":
-        return TransformerClassifier(vocab_size, cfg["embed_dim"], cfg.get("num_heads", 4), cfg.get("num_layers", 2), NUM_CLASSES, pad_id, cfg.get("dropout", 0.1))
+        return TransformerClassifier(
+            vocab_size,
+            cfg["embed_dim"],
+            cfg.get("num_heads", 4),
+            cfg.get("num_layers", 2),
+            NUM_CLASSES,
+            pad_id,
+            cfg.get("dropout", 0.1),
+            cfg.get("hidden_dim"),
+        )
     raise ValueError(f"Unknown model {name}")
 
 
