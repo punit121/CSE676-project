@@ -1,4 +1,3 @@
-# Install Python libraries
 # pip install torch torchvision transformers pillow pandas numpy scikit-learn pytesseract requests imbalanced-learn albumentations
 
 import os
@@ -30,13 +29,12 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 TEXT_MODEL_NAME = "xlm-roberta-base"
 
 MAX_LENGTH = 128
-BATCH_SIZE = 32  # Increased batch size for 10K dataset
-EPOCHS = 25  # More epochs with more data
-LR = 5e-6  # Lower learning rate for fine-tuning
+BATCH_SIZE = 32  
+EPOCHS = 25 
+LR = 5e-6  
 IMAGE_SIZE = 224
-HIDDEN_DIM = 768  # Increased
+HIDDEN_DIM = 768  
 
-# Increased to 10000 images for better minority class representation
 MAX_IMAGES_TO_DOWNLOAD = 10000
 
 DATASET_NAME = "fakeddit"
@@ -59,17 +57,6 @@ TRAIN_BALANCED_CSV = os.path.join(DATA_DIR, f"{DATASET_NAME}_train_balanced.csv"
 
 
 def download_images_from_urls(df, img_dir, max_images=10000):
-    """
-    Download images from image_url column
-
-    Args:
-        df: DataFrame with 'id' and 'image_url' columns
-        img_dir: Directory to save images
-        max_images: Maximum number of images to download
-    """
-    print("\n" + "="*60)
-    print(f"DOWNLOADING IMAGES (max {max_images})")
-    print("="*60)
 
     os.makedirs(img_dir, exist_ok=True)
 
@@ -135,14 +122,7 @@ def download_images_from_urls(df, img_dir, max_images=10000):
 
 
 def aggressive_balance_dataset(df, label_col='label', target_samples_per_class=3000, random_state=42):
-    """
-    Aggressively balance dataset with more samples per class
-    With 10K images, we can afford 3000 samples per class
-    """
-    print("\n" + "="*60)
-    print("AGGRESSIVE BALANCED OVERSAMPLING")
-    print("="*60)
-    
+
     # Print original distribution
     print("\n📊 Original class distribution:")
     original_dist = df[label_col].value_counts().sort_index()
@@ -152,9 +132,9 @@ def aggressive_balance_dataset(df, label_col='label', target_samples_per_class=3
     # Find max class count
     max_count = original_dist.max()
     target_count = max(max_count, target_samples_per_class)
-    
-    print(f"\n🎯 Target samples per class: {target_count}")
-    
+
+    print(f"Target samples per class: {target_count}")
+
     balanced_dfs = []
     
     for label in df[label_col].unique():
@@ -179,9 +159,8 @@ def aggressive_balance_dataset(df, label_col='label', target_samples_per_class=3
     
     # Shuffle
     df_balanced = df_balanced.sample(frac=1.0, random_state=random_state).reset_index(drop=True)
-    
+
     # Print new distribution
-    print("\n📊 Balanced class distribution:")
     balanced_dist = df_balanced[label_col].value_counts().sort_index()
     for label, count in balanced_dist.items():
         print(f"   {label}: {count}")
@@ -204,20 +183,15 @@ def preprocess_fakeddit_with_download(
     val_ratio: float = 0.15,
     seed: int = 42
 ) -> None:
-    """
-    Download images and preprocess data with balanced training set
-    """
-    print("PREPROCESSING FAKEDDIT WITH IMAGE DOWNLOAD")
-
+    
     # Read TSV
-    print(f"\n Reading: {test_tsv}")
     df = pd.read_csv(test_tsv, sep='\t', on_bad_lines='skip')
 
-    print(f"   Total rows: {len(df)}")
+    print(f"Total rows: {len(df)}")
 
     # Filter for posts with images
     df = df[df['hasImage'] == True].reset_index(drop=True)
-    print(f"   Rows with images: {len(df)}")
+    print(f"Rows with images: {len(df)}")
 
     # Take first max_samples * 2 to ensure we get enough after download failures
     df = df.head(max_samples * 2)
@@ -301,7 +275,7 @@ def preprocess_fakeddit_with_download(
     print(f"\n📊 Label distribution (all data):")
     print(df_unified['label'].value_counts().to_dict())
 
-    # Aggressive balancing with target 3000 samples per class (increased from 2000)
+    # Balancing with target 3000 samples per class
     df_train_balanced = aggressive_balance_dataset(
         df_train, 
         label_col='label', 
@@ -310,7 +284,7 @@ def preprocess_fakeddit_with_download(
     )
     df_train_balanced.to_csv(out_train_balanced, index=False)
 
-    print(f"\n💾 Saved balanced training set to: {out_train_balanced}")
+    print(f"Balanced training set to: {out_train_balanced}")
 
 
 
@@ -557,37 +531,23 @@ def eval_model(model, dataloader, criterion, device, return_predictions=False):
 
 
 def print_evaluation_metrics(y_true, y_pred, label_encoder):
-    """Print detailed evaluation metrics"""
-    print("EVALUATION METRICS")
+
 
     # Overall metrics
     accuracy = accuracy_score(y_true, y_pred)
     precision, recall, f1, _ = precision_recall_fscore_support(y_true, y_pred, average='weighted', zero_division=0)
 
-    print(f"\n Overall Metrics:")
-    print(f"   Accuracy:  {accuracy:.4f}")
-    print(f"   Precision: {precision:.4f}")
-    print(f"   Recall:    {recall:.4f}")
-    print(f"   F1-Score:  {f1:.4f}")
+    print(f"Overall Metrics:")
+    print(f"Accuracy:  {accuracy:.4f}")
+    print(f"Precision: {precision:.4f}")
+    print(f"Recall:    {recall:.4f}")
+    print(f"F1-Score:  {f1:.4f}")
 
     # Per-class metrics
-    print(f"\n Classification Report:")
+    print(f"Classification Report:")
     print(classification_report(y_true, y_pred, target_names=label_encoder.classes_, zero_division=0))
     
-    # Check if all classes meet 70% precision threshold
-    print(f"\n Precision Analysis (Target: 70%+):")
-    precisions = precision_recall_fscore_support(y_true, y_pred, average=None, zero_division=0)[0]
-    all_pass = True
-    for i, (cls, prec) in enumerate(zip(label_encoder.classes_, precisions)):
-        status = "Reached Threshold" if prec >= 0.70 else "Below Threshold"
-        if prec < 0.70:
-            all_pass = False
-        print(f"   {status} {cls:20s}: {prec:.4f}")
-    
-    if all_pass:
-        print("\n SUCCESS! All classes meet 70%+ precision target!")
-    else:
-        print("\n  Some classes still below 70% precision target")
+
 
 
 
@@ -600,10 +560,7 @@ def main():
     if os.path.exists(TRAIN_BALANCED_CSV):
         try:
             existing_df = pd.read_csv(TRAIN_BALANCED_CSV)
-            # If balanced dataset is too small, it's from 5K run - reprocess
-            if len(existing_df) < 15000:  # 10K should give ~18K balanced samples
-                print("\n⚠️  Detected old 5K dataset. Deleting and reprocessing for 10K...")
-                # Delete old files to force reprocessing
+            if len(existing_df) < 15000:  
                 for file in [TRAIN_CSV, VAL_CSV, TEST_CSV, TRAIN_BALANCED_CSV]:
                     if os.path.exists(file):
                         os.remove(file)
@@ -615,7 +572,7 @@ def main():
             needs_reprocessing = True
     
     if needs_reprocessing:
-        print("\n📋 Preprocessing data and downloading 10K images...")
+        print("Preprocessing data and downloading 10K images...")
         preprocess_fakeddit_with_download(
             test_tsv=FAKEDDIT_TEST_TSV,
             img_dir=FAKEDDIT_IMG_DIR,
@@ -628,7 +585,6 @@ def main():
         )
 
     # Load tokenizer
-    print("\n📦 Loading tokenizer...")
     tokenizer = AutoTokenizer.from_pretrained(TEXT_MODEL_NAME)
 
     # Create datasets
@@ -636,9 +592,8 @@ def main():
     label_encoder = LabelEncoder()
     label_encoder.fit(train_df["label"])
 
-    print(f"\n📊 Dataset Info:")
-    print(f"   Classes: {label_encoder.classes_}")
-    print(f"   Number of classes: {len(label_encoder.classes_)}")
+    print(f"Classes: {label_encoder.classes_}")
+    print(f"Number of classes: {len(label_encoder.classes_)}")
 
     train_dataset = MultimodalFakeNewsDataset(
         csv_path=TRAIN_BALANCED_CSV,
@@ -674,15 +629,14 @@ def main():
     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=2, pin_memory=True)
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=2, pin_memory=True)
 
-    print(f"\n   Train: {len(train_dataset)} samples (balanced)")
-    print(f"   Val:   {len(val_dataset)} samples")
-    print(f"   Test:  {len(test_dataset)} samples")
-    
-    print(f"\n📊 Training set class distribution:")
+    print(f"Train: {len(train_dataset)} samples (balanced)")
+    print(f"Val:   {len(val_dataset)} samples")
+    print(f"Test:  {len(test_dataset)} samples")
+
+    print(f"Training set class distribution:")
     print(train_df['label'].value_counts().sort_index().to_dict())
 
     # Initialize model
-    print("\n🔧 Initializing model...")
     num_labels = len(label_encoder.classes_)
     model = MultimodalFakeNewsClassifier(
         text_model_name=TEXT_MODEL_NAME,
@@ -690,11 +644,11 @@ def main():
         hidden_dim=HIDDEN_DIM,
     ).to(DEVICE)
 
-    print(f"   Parameters: {sum(p.numel() for p in model.parameters()):,}")
+    print(f"Parameters: {sum(p.numel() for p in model.parameters()):,}")
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=0.05)
     
-    # Use Focal Loss to focus on hard examples
+    # Use Focal Loss
     criterion = FocalLoss(alpha=1.0, gamma=2.0)
     
     # Learning rate scheduler with warmup
@@ -708,23 +662,19 @@ def main():
     
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
-    # Training
-    print("TRAINING WITH FOCAL LOSS")
-
+    # Training loop with early stopping
     best_val_acc = 0.0
-    patience = 7  # Increased patience
+    patience = 7  
     patience_counter = 0
 
     for epoch in range(1, EPOCHS + 1):
-        print(f"\n{'='*60}")
+        
         print(f"Epoch {epoch}/{EPOCHS}")
-        print(f"{'='*60}")
-
         train_loss, train_acc = train_one_epoch(model, train_loader, optimizer, criterion, DEVICE, scheduler)
         val_loss, val_acc = eval_model(model, val_loader, criterion, DEVICE)
 
-        print(f"\n  Train - Loss: {train_loss:.4f}, Acc: {train_acc:.4f}")
-        print(f"  Val   - Loss: {val_loss:.4f}, Acc: {val_acc:.4f}")
+        print(f"Train - Loss: {train_loss:.4f}, Acc: {train_acc:.4f}")
+        print(f"Val   - Loss: {val_loss:.4f}, Acc: {val_acc:.4f}")
 
         if val_acc > best_val_acc:
             best_val_acc = val_acc
@@ -732,38 +682,33 @@ def main():
             save_dir = os.path.join(BASE_DIR, "checkpoints")
             os.makedirs(save_dir, exist_ok=True)
             torch.save(model.state_dict(), os.path.join(save_dir, f"{DATASET_NAME}_best_model.pt"))
-            print(f"  ✓ Best model saved! (val_acc: {val_acc:.4f})")
+            print(f"Best model saved! (val_acc: {val_acc:.4f})")
         else:
             patience_counter += 1
-            print(f"  Patience: {patience_counter}/{patience}")
-            
+            print(f"Patience: {patience_counter}/{patience}")
+
             if patience_counter >= patience:
-                print(f"\n⚠️  Early stopping triggered at epoch {epoch}")
                 break
 
     # Load best model for final evaluation
-    print("\n🔄 Loading best model for final evaluation...")
+    print("Loading best model for final evaluation...")
     model.load_state_dict(torch.load(os.path.join(BASE_DIR, "checkpoints", f"{DATASET_NAME}_best_model.pt")))
 
     # Final evaluation on test set
-    print("\n" + "="*60)
-    print("FINAL EVALUATION ON TEST SET")
-    print("="*60)
-
     test_loss, test_acc, test_preds, test_labels = eval_model(
         model, test_loader, criterion, DEVICE, return_predictions=True
     )
 
-    print(f"\n📊 Test Results:")
-    print(f"   Loss: {test_loss:.4f}")
-    print(f"   Accuracy: {test_acc:.4f}")
+    print(f"Test Results:")
+    print(f"Loss: {test_loss:.4f}")
+    print(f"Accuracy: {test_acc:.4f}")
 
     # Detailed metrics
     print_evaluation_metrics(test_labels, test_preds, label_encoder)
 
 
-    print(f"   Best Val Accuracy: {best_val_acc:.4f}")
-    print(f"   Test Accuracy: {test_acc:.4f}")
+    print(f"Best Val Accuracy: {best_val_acc:.4f}")
+    print(f"Test Accuracy: {test_acc:.4f}")
 
 
 if __name__ == "__main__":
