@@ -26,22 +26,16 @@ IMAGE_TEST_FILE_ID = "1YtvM2Muf4hT0SCALI7FaILaGPJdW7lW1"
 
 def install_gdown():
     """Install gdown for Google Drive downloads"""
-    print("\n📦 Installing gdown...")
     os.system("pip install -q gdown")
-    print("✅ gdown installed!")
 
 
 def download_text_test_set():
     """Download the private text test set"""
-    print("\n" + "="*60)
-    print("DOWNLOADING TEXT TEST SET")
-    print("="*60)
 
     url = f"https://drive.google.com/uc?id={TEXT_TEST_FILE_ID}"
     output_path = os.path.join(FAKEDDIT_DIR, "text_test.zip")
 
-    print(f"\n📥 Downloading from Google Drive...")
-    print(f"   File ID: {TEXT_TEST_FILE_ID}")
+
 
     try:
         gdown.download(url, output_path, quiet=False)
@@ -69,10 +63,10 @@ def download_text_test_set():
 
         # Check for tar.gz
         elif output_path.endswith('.tar.gz') or output_path.endswith('.tgz'):
-            print(f"\n📂 Extracting tar archive...")
+            print(f"Extracting tar archive...")
             with tarfile.open(output_path, 'r:gz') as tar_ref:
                 tar_ref.extractall(FAKEDDIT_DIR)
-            print(f"✅ Extracted to: {FAKEDDIT_DIR}")
+            print(f"Extracted to: {FAKEDDIT_DIR}")
 
         return True
 
@@ -83,8 +77,7 @@ def download_text_test_set():
 
 
 def download_image_test_set():
-    """Download the private image test set"""
-    print("DOWNLOADING IMAGE TEST SET")
+
 
     url = f"https://drive.google.com/uc?id={IMAGE_TEST_FILE_ID}"
     output_path = os.path.join(FAKEDDIT_DIR, "image_test.zip")
@@ -95,7 +88,6 @@ def download_image_test_set():
 
     try:
         gdown.download(url, output_path, quiet=False)
-        print(f"✅ Downloaded to: {output_path}")
 
         # Check file size
         size_mb = os.path.getsize(output_path) / (1024 * 1024)
@@ -110,7 +102,7 @@ def download_image_test_set():
                 # Extract to images directory
                 zip_ref.extractall(IMAGES_DIR)
 
-            print(f"✅ Extracted to: {IMAGES_DIR}")
+            print(f"Extracted to: {IMAGES_DIR}")
 
             # Count images
             image_extensions = ('.jpg', '.jpeg', '.png', '.gif', '.bmp')
@@ -123,7 +115,7 @@ def download_image_test_set():
             print(f"\n📂 Extracting tar archive...")
             with tarfile.open(output_path, 'r:gz') as tar_ref:
                 tar_ref.extractall(IMAGES_DIR)
-            print(f"✅ Extracted to: {IMAGES_DIR}")
+            print(f"Extracted to: {IMAGES_DIR}")
 
         return True
 
@@ -133,14 +125,11 @@ def download_image_test_set():
 
 
 def verify_downloads():
-    """Verify that files were downloaded correctly"""
-    print("VERIFYING DOWNLOADS")
-
     # Check for text files (TSV, CSV, etc.)
     text_files = [f for f in os.listdir(FAKEDDIT_DIR)
                   if f.endswith(('.tsv', '.csv', '.txt')) and os.path.isfile(os.path.join(FAKEDDIT_DIR, f))]
 
-    print(f"\n📄 Text files found: {len(text_files)}")
+    print(f"Text files found: {len(text_files)}")
     for file in text_files:
         path = os.path.join(FAKEDDIT_DIR, file)
         size_mb = os.path.getsize(path) / (1024 * 1024)
@@ -151,7 +140,7 @@ def verify_downloads():
     image_files = list(Path(IMAGES_DIR).rglob('*'))
     image_files = [f for f in image_files if f.suffix.lower() in image_extensions]
 
-    print(f"\n🖼️  Images found: {len(image_files)}")
+    print(f"Images found: {len(image_files)}")
 
     if len(image_files) > 0:
         # Show some sample image paths
@@ -162,23 +151,18 @@ def verify_downloads():
     # Check if we have test files
     test_files = [f for f in text_files if 'test' in f.lower()]
     if test_files:
-        print(f"\n✅ Test files detected:")
+        print(f"Test files detected:")
         for f in test_files:
             print(f"   - {f}")
 
     if len(text_files) > 0 and len(image_files) > 0:
-        print("\n" + "="*60)
-        print("✅ DOWNLOAD SUCCESSFUL!")
-        print("="*60)
         return True
     else:
-        print("\n" + "="*60)
-        print("⚠️  INCOMPLETE DOWNLOAD")
-        print("="*60)
+        print("INCOMPLETE DOWNLOAD")
         if len(text_files) == 0:
-            print("❌ No text files found")
+            print("No text files found")
         if len(image_files) == 0:
-            print("❌ No images found")
+            print("No images found")
         return False
 
 
@@ -197,23 +181,18 @@ def show_text_file_preview():
     import pandas as pd
 
     file_path = os.path.join(FAKEDDIT_DIR, text_files[0])
-    print(f"\n📄 Previewing: {text_files[0]}")
+    print(f"Previewing: {text_files[0]}")
 
     try:
         # Try reading as TSV first
         df = pd.read_csv(file_path, sep='\t', nrows=5)
-        print(f"\nShape: {df.shape}")
-        print(f"Columns: {list(df.columns)}")
-        print(f"\nFirst 3 rows:")
+      
         display_cols = [c for c in df.columns[:5]]
         print(df[display_cols].head(3).to_string())
     except Exception as e:
         # Try as CSV
         try:
             df = pd.read_csv(file_path, nrows=5)
-            print(f"\nShape: {df.shape}")
-            print(f"Columns: {list(df.columns)}")
-            print(f"\nFirst 3 rows:")
             display_cols = [c for c in df.columns[:5]]
             print(df[display_cols].head(3).to_string())
         except Exception as e2:
@@ -234,7 +213,7 @@ def organize_files():
 
                 if not os.path.exists(new_path):
                     os.rename(old_path, new_path)
-                    print(f"✅ Renamed {file} -> test.tsv")
+                    print(f"Renamed {file} -> test.tsv")
 
     # Check if images are in subdirectories and move them up
     for root, dirs, files in os.walk(IMAGES_DIR):
@@ -247,15 +226,11 @@ def organize_files():
                 if root != IMAGES_DIR and not os.path.exists(dest):
                     os.rename(source, dest)
 
-    print("✅ Files organized!")
+    print("Files organized!")
 
 
 
 def download_all():
-    """Download both text and image test sets"""
-    print("="*60)
-    print("FAKEDDIT TEST SET DOWNLOADER")
-    print("="*60)
 
     # Install gdown
     install_gdown()
